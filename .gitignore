@@ -1,5 +1,13 @@
-
-
+# System:
+*.log
+*.pot
+*.pyc
+*/*/*/__pycache__/
+*/*/__pycache__/
+*/__pycache__/
+.DS_Store
+*.swp
+*.gz
 
 # Datasets:
 datasets/*
