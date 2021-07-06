@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 from deepctr.models import DeepFM
-from deepctr.feature_column import SparseFeat,get_feature_names
+from deepctr.feature_column import SparseFeat, get_feature_names
 
 if __name__ == "__main__":
 

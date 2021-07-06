@@ -9,12 +9,10 @@ repo for recommender systems
 
 Download MovieLens-1M
 ``` 
-wget https://files.grouplens.org/datasets/movielens/ml-1m.zip 
+wget https://files.grouplens.org/datasets/movielens/ml-latest-small.zip
 
-unzip ml-1m.zip
+unzip ml-latest-small.zip -d datasets/
 
-rm ml-1m.zip
-
-mv ml-1m datasets/
+rm ml-latest-small.zip
 
 ```
