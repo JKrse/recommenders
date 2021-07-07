@@ -7,7 +7,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import log_loss, roc_auc_score
 
-from models.utils import __missing_values, wide_deep_inputs, get_model, transform_sparse_features, transform_dense_features
+from models.utils import __missing_values, wide_deep_inputs, get_model, LabelEncode_sparse_features, StandardScore_dense_features
 
 
 # ========================================================================
@@ -23,7 +23,48 @@ def __binary_target_movieLens(target):
     target[target <= 3] = 0  # ratings less than or equal to 3 classified as 0
     target[target > 3] = 1  # ratings bigger than 3 classified as 1
     return target
-    
+
+
+def wide_deep_inputs(df_data, sparse_feature_col, dense_feature_col, model_type=None): 
+
+    sparse_embedding = [SparseFeat(feat, vocabulary_size=df_data[feat].max() + 1, embedding_dim=4) for feat in sparse_feature_col]
+    dense_embedding  = [DenseFeat(feat, 1,) for feat in dense_feature_col]
+
+    feature_names = get_feature_names(sparse_embedding + dense_embedding)
+
+    if model_type is not None:
+        if model_type is "DeepFM" or "NFM":
+            wide_input = sparse_embedding + dense_embedding
+            deep_input = wide_input
+            feature_names = get_feature_names(sparse_embedding + dense_embedding)
+        else: 
+            raise NameError("Model type is not defined")
+
+    return wide_input, deep_input, feature_names
+
+
+def get_model(model_type="DeepFM", wide_input=None, deep_input=None, task="classification"):
+
+    if wide_input is None or deep_input is None:
+        raise NameError("Missing Wide or Deep or input")
+
+    if model_type is "DeepFM":
+        model = DeepFM(wide_input, deep_input, task)
+    elif model_type is "NFM":
+        model = NFM(wide_input, deep_input, task)
+    else:
+        raise NameError("Model type is not defined")    
+
+    if task is "classification": 
+        model.compile("adam", "binary_crossentropy", metrics=['binary_crossentropy'], )
+    elif task is "regression": 
+        model.compile("adam", "mse", metrics=['mse'], )
+    else:
+        raise NameError("Task is not defined")
+
+    return model
+
+
 # ========================================================================
 
 # Get data: 
@@ -50,8 +91,8 @@ data = __missing_values(data, sparse_features, dense_features)
 
 # ========================================================================
 # 1. Label Encoding for sparse features, and standardize Transformation for dense features 
-data = transform_sparse_features(data, sparse_features)
-data = transform_dense_features(data, dense_features)
+data = LabelEncode_sparse_features(data, sparse_features)
+data = StandardScore_dense_features(data, dense_features)
 
 # ========================================================================
 # 2. Count #unique features for each sparse field, and record dense feature field name
