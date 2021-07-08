@@ -1,13 +1,12 @@
 # ========================================================================
+import pandas as pd
 
 from deepctr.models import NFM, DeepFM
 from deepctr.feature_column import SparseFeat, DenseFeat
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import log_loss, roc_auc_score
 
 from models.utils import LabelEncode_sparse_features, StandardScore_dense_features, ShareInput_wide_deep, __missing_values, timeWrapper
-import pandas as pd
-
-from sklearn.metrics import log_loss, roc_auc_score
 
 from models.MovieLensDataset import MovieLensDataset
 

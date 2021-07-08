@@ -1,5 +1,5 @@
 # ========================================================================
-# Taken from: https://docs.microsoft.com/en-us/azure/open-datasets/dataset-microsoft-news?tabs=azureml-opendatasets
+
 import os
 import urllib.request
 import zipfile
