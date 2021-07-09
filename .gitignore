@@ -10,4 +10,5 @@
 *.gz
 
 # Datasets:
-datasets/*
+datasets/ml*
+datasets/MIND*
