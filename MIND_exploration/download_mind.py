@@ -6,22 +6,23 @@ import zipfile
 
 # ========================================================================
 
-def mind_url(dataset):
+def mind_url(MIND_type: str="small"):
     """
     Get url for mind dataset
     """
-    
+    assert MIND_type in ["small", "large"]
+
     base_url = 'https://mind201910small.blob.core.windows.net/release'
-    if dataset == "small_train":
-        url = f'{base_url}/MINDsmall_train.zip'
-    if dataset == "small_develop" or "small_val":
-        url = f'{base_url}/MINDsmall_dev.zip'
-    if dataset == "large_train":
-        url = f'{base_url}/MINDlarge_train.zip'
-    if dataset == "large_develop" or "large_validation":
-        url = f'{base_url}/MINDlarge_dev.zip'    
-    
-    return url
+    if MIND_type == "small":
+        return(
+        f'{base_url}/MINDsmall_train.zip',
+        f'{base_url}/MINDsmall_dev.zip'
+        )
+    if MIND_type == "large":
+        return(
+        f'{base_url}/MINDlarge_train.zip',
+        f'{base_url}/MINDlarge_dev.zip'    
+        )
 
 
 def download_url(url, temp_dir,
@@ -57,12 +58,11 @@ def download_url(url, temp_dir,
     return destination_filename
 
 
-def download_wrapper(url, temp_dir):
+def download_wrapper(url: str, temp_dir: str):
     """ 
     Wrapper function for downloading the MIND datasets
     """
 
-    #temp_dir = os.path.join(data_path, file_name)
     if not os.path.exists(temp_dir): 
         os.makedirs(temp_dir, exist_ok=True)
 

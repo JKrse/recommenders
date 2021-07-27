@@ -1,6 +1,5 @@
 # ========================================================================
 
-from numpy.core.fromnumeric import shape
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import log_loss, roc_auc_score
@@ -19,12 +18,11 @@ from deepctr.feature_column import SparseFeat, DenseFeat
 from deepctr.models import NFM, DeepFM
 
 # ========================================================================
-
 # ========================================================================
 
 # Download data
-url = mind_url("small_dev")
-data_path = "/zhome/63/4/108196/recommenders/datasets"
+_, url = mind_url("small")
+data_path = "/zhome/63/4/108196/recommenders/datasets1"
 
 temp_dir = f"{data_path}/MIND"
 
