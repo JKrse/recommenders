@@ -1,7 +1,9 @@
 
 
+
 from numpy.core.records import array
 from pandas.core.frame import DataFrame
+from typing import List
 
 from models.utils import timeWrapper
 
@@ -9,10 +11,6 @@ import os
 from ebdeepfm.MIND_utils import utils_MIND
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
-
-
-import functools
-import operator
 
 
 from deepctr.feature_column import SparseFeat, DenseFeat
@@ -27,219 +25,62 @@ from sklearn.metrics import log_loss, roc_auc_score
 
 from tqdm import tqdm
 
-def functools_reduce_iconcat(a):
-    return functools.reduce(operator.iconcat, a, )
+import nltk
+from transformers import BertTokenizer
+import re, string, unicodedata
 
-
-class utils_TFIDF: 
-    """Super for deepCTR models
-    """
-
-
-    def __init__(self) -> None:
-        pass
-
-
-    def init_TFIDF(self, corpus: list = None) -> None:
-        """[summary]
-        Args:
-            corpus (list, str): List of strings. Defaults to None.
-        """
-        
-        vectorizer = TfidfVectorizer()
-        tdidf = vectorizer.fit(corpus)
-        # tdidf = vectorizer.fit_transform(corpus)
-        print(f"Dimension of TF-IDF matrix: {vectorizer.transform(corpus).shape} [documents, words]")
-
-        return tdidf
-    
-
-    def transform_input_to_document_term_matrix_array(self, raw_document: list, TFIDF_Vectorizer=None) -> None: # numpy array
-        """[summary]
-
-        Args:
-            raw_document (list, str): list of strings (documents)
-            TFIDF_Vectorizer ([type], optional): [description]. Defaults to None.
-
-        Returns:
-            [type]: [description]
-        """
-        
-        return TFIDF_Vectorizer.transform(raw_document).toarray()
-    
-
-    def transform_click_historic_to_embeddings(self, behaviors: DataFrame, news: DataFrame, vectorizer, num_samples=None, max_history_len=50, title:bool=True, abstract:bool=False, title_abstract:bool=False):
-        """Make a dictionary that contain all features of behaviors with the content features. These can come from either title, abstract, and title-abstract.
-        The content features are based on the TF-IDF (vectorizer) that have been fitted to fit().
-
-        Args:
-            behaviors (([DataFrame]): uses the columns "history", "title", "abstract" in behaviors.tsv
-            news ([DataFrame]): the news.tsv file.
-            vectorizer ([TfidfVectorizer]): sklearn.feature_extraction.text.TfidfVectorizer object defined in .tokenize_text() (that has been fitted to a corpus).
-            num_samples (int): number of samples to be used in the Dataframe. Defaults to None (i.e. all).
-            max_history_len (int, optional): user's click history. Defaults to 50.
-            title (bool, optional): Generate concatenated click history embeddings based on title. Defaults to True.
-            abstract (bool, optional): Generate concatenated click history embeddings based on abstract. Defaults to False.
-            title_abstract (bool, optional): Generate concatenated click history embeddings based on title and abstract. Defaults to False (if true both title and abstract are set to True).
-
-        Returns:
-            data_dict [dict]]:  Dictionary similar to behaviors file but with TF-IDF features for a given click historic (These are based on either title, abstract or title-abstract)
-                        To get dataframe: pd.DataFrame(data_dict).transpose()
-        """
-        
-        news.index = news["id"]
-        no_history = 0
-        data_dict = {}
-
-        if num_samples is None: 
-            num_samples = len(behaviors)
-        
-        if title_abstract:
-            title=True
-            abstract=True
-
-        for impression in tqdm(range(num_samples)):
-            
-            history = behaviors.loc[impression]["history"]
-
-            try: 
-                # If user has a click history:
-                history = history.split(" ")[0:max_history_len]
-
-                titles = []
-                abstracts = []
-
-                for article in history: 
-                    if title:
-                        titles.append(str(news.loc[article, :]["title"]))
-                    if abstract:
-                        abstracts.append(str(news.loc[article, :]["abstract"]))
-                
-                # TODO 
-                # data clean should be done...
-
-                if title:
-                    title_text = functools_reduce_iconcat(titles)
-                if abstract:
-                    abstract_text = functools_reduce_iconcat(abstracts)
-                if title_abstract:
-                    title_abstract_text = title_text + " " + abstract_text
-            except:
-                # If the user does not have a click history:
-                title_text=""
-                abstract_text=""
-                no_history += 1 
-                # print(f"ImpressionID {impression} has no click history.")
-
-            data_dict[impression] = {key : behaviors.loc[impression][key] for key in behaviors}
-
-            if title:
-                data_dict[impression]["click_his_title_emb"] = vectorizer.transform([title_text]).toarray()[0]
-            if abstract:
-                data_dict[impression]["click_his_abstract_emb"] = vectorizer.transform([abstract_text]).toarray()[0]
-            if title_abstract:
-                data_dict[impression]["click_his_abstract_title_emb"] = vectorizer.transform([title_abstract_text]).toarray()[0]
-
-        return data_dict, no_history
-        
-
-
-    def format_impressions(self, behaviors:DataFrame, news:DataFrame, vectorizer, k_samples: int= 7, title:bool=True, abstract:bool=False, title_abstract:bool=False) -> dict:
-        """Format the behaviors files so that each impression is a row with a target value (1 or 0) 
-
-        Args:
-            behaviors ([DataFrame]): behaviors.tsv file. Will format data in "impressions" column.
-            news ([DataFrame]): the news.tsv file. 
-            vectorizer ([TfidfVectorizer]): sklearn.feature_extraction.text.TfidfVectorizer object defined in .tokenize_text() (that has been fitted to a corpus).
-            k_samples (int, optional): Number of negative samples of impression log to add, as there can be quite a few (simple "negative sampling"). Defaults to 7.
-            title (bool, optional): Generate concatenated click history embeddings based on title. Defaults to True.
-            abstract (bool, optional): Generate concatenated click history embeddings based on abstract. Defaults to False.
-            title_abstract (bool, optional): Generate concatenated click history embeddings based on title and abstract. Defaults to False (if true both title and abstract are set to True).
-
-        Returns:
-            dict: dictionary with new format and impression article embedding
-        """
-
-        data_dict = {}
-        sample_no = 0 
-
-        if title_abstract:
-            title=True
-            abstract=True
-        
-        for index in tqdm(behaviors.index):
-            
-            samples = behaviors.loc[index]["impressions"].split(" ")
-
-            for i, sample in enumerate(samples): 
-                
-                if "-1" in sample or i < k_samples:
-                    temp = sample.split("-")
-                    # Temporal
-                    if title:
-                        temp_title = str(news.loc[temp[0]]["title"])
-                        target_title_emb = vectorizer.transform([temp_title]).toarray()[0]
-                    if abstract:
-                        temp_abstract = str(news.loc[temp[0]]["abstract"])
-                        target_abstract_emb = vectorizer.transform([temp_abstract]).toarray()[0]
-                    if title_abstract:
-                        temp_title_abstract = temp_title + " " + temp_abstract
-                        target_title_abstract_emb = vectorizer.transform([temp_title_abstract]).toarray()[0]
-                    
-
-                    # Copy existings column names:
-                    data_dict[sample_no] = {key : behaviors.loc[index][key] for key in behaviors}
-                    
-                    # Add new column names:
-                    data_dict[sample_no]["article_id"] = temp[0]
-                    if title:
-                        data_dict[sample_no]["target_title_emb"] = target_title_emb
-                    if abstract:
-                        data_dict[sample_no]["target_abstract_emb"] = target_abstract_emb
-                    if title_abstract:
-                        data_dict[sample_no]["target_title_abstract_emb"] = target_title_abstract_emb
-                    
-                    data_dict[sample_no]["target"] = int(temp[1])
-                    
-                    sample_no += 1
-
-        return data_dict
+from ebdeepfm.TFIDF_utils import utils_TFIDF
 
 ##########################################################################################
 # Downloading and loading MIND: 
 data_path = "/zhome/63/4/108196/recommenders/datasets/MIND"
 train_path = os.path.join(data_path, "train")
 val_path = os.path.join(data_path, "valid")
+model_type = "demo"
 
+########################
 m = utils_MIND()
-m.download_MIND_data(MIND_type="demo", data_path=data_path)
+m.download_MIND_data(MIND_type=model_type, data_path=data_path)
 
+# Trainset: 
 behaviors = m.load_behaviors(train_path)
 news = m.load_news(train_path)
 
+# Testset: 
+behaviors_test = m.load_behaviors(val_path)
 news_test = m.load_news(val_path)
-
-# Generate corpus based on titles: 
-train_corpus = m.generate_corpus_from_MIND_news_file(news_dataframe=news, num_articles=300)
-# test_corpus = m.generate_corpus_from_MIND_news_file(news_dataframe=news_test, num_articles=200)
 
 ##########################################################################################
 
+num_articles = 10
+num_samples = 100
+
+# Init model: 
 model_tfidf = utils_TFIDF()
+
+# Generate corpus based on titles: 
+train_corpus = model_tfidf.generate_corpus_from_MIND_news_file(news_dataframe=news, num_articles=num_articles)
+
 train_tdidf = model_tfidf.init_TFIDF(train_corpus)
 
 
-behaviors_with_emb, _ = model_tfidf.transform_click_historic_to_embeddings(behaviors, news, train_tdidf, num_samples=10000, title=True, abstract=False, title_abstract=False)
+
+# Generate embeddings based on news click historic:
+behaviors_with_emb, _ = model_tfidf.transform_click_historic_to_embeddings(behaviors, news, train_tdidf, num_samples=num_samples, title=True, abstract=False, title_abstract=False)
 behaviors_with_emb = pd.DataFrame(behaviors_with_emb).transpose()
 
 
-start_func = timeWrapper.TimeStart()
+# behavior_testing_format = model_tfidf.format_impressions(behaviors=behaviors, news=news, vectorizer=train_tdidf, title=True, abstract=False, title_abstract=False)
 
+
+# Format the 
 behavior_format = model_tfidf.format_impressions(behaviors=behaviors_with_emb, news=news, vectorizer=train_tdidf, title=True, abstract=False, title_abstract=False)
 behavior_format = pd.DataFrame(behavior_format).transpose()
 
-end_func = timeWrapper.TimeEnd(start_func)
-timeWrapper.print_TimeTaken(end_func)
+
+
+
+
 
 
 

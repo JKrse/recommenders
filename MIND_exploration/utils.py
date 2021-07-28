@@ -5,8 +5,20 @@ import operator
 
 # ========================================================================
 
-def functools_reduce_iconcat(a):
-    return functools.reduce(operator.iconcat, a, )
+def join_lists_of_stings(a):
+    """[summary]
+
+    Args:
+        a ([type]): [description]
+
+    Returns:
+        [type]: [description]
+        > For example: 
+        > join_lists_of_stings(["The 25 US cities where it's easiest to get a mortgage", "NYPD Commissioner James O'Neill To Resign: Reports"])
+        > Output: ["The 25 US cities where it's easiest to get a mortgage NYPD Commissioner James O'Neill To Resign: Reports"]
+        """
+        
+    return " ".join(a) 
 
 # The following code is not written with production in mind, rather being functional
 
@@ -50,8 +62,8 @@ def add_embeddings_to_behavior(behaviors, news, vectorizer, num_samples=None, hi
                 abstracts.append(str(news.loc[article, :]["abstract"]))
             
             # data clean should be done...
-            title_text = functools_reduce_iconcat(titles)
-            abstract_text = functools_reduce_iconcat(abstracts)
+            title_text = join_lists_of_stings(titles)
+            abstract_text = join_lists_of_stings(abstracts)
             title_abstract_text = title_text + " " + abstract_text
         except:
             # If the user does not have a click history:
